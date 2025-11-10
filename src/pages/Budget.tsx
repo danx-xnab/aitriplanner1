@@ -47,6 +47,13 @@ export default function Budget() {
 		return result;
 	}, [byCategory, aiBudget]);
 
+	function formatDate(value?: string | null) {
+		if (!value) return '';
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return value ?? '';
+		return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+	}
+
 	async function save() {
 		setMsg('');
 		const n = Number(amount);
@@ -113,90 +120,108 @@ export default function Budget() {
 	}
 
 	return (
-		<div className="planner">
-			<section className="input-section">
-				<div className="label">关联行程</div>
-				<div className="input-row" style={{ marginBottom: 8 }}>
+		<div className="page budget-page">
+			<section className="card surface input-card">
+				<header className="card-header">
+					<div>
+						<h2 className="card-heading">预算与开销</h2>
+						<p className="card-subheading">用语音或手动记录每笔消费，随时查看分类汇总与 AI 预算对比</p>
+					</div>
+				</header>
+				<div className="input-stack">
+					<label className="label">关联行程</label>
 					<select className="text-input" value={planId ?? ''} onChange={(e) => setPlanId(e.target.value || undefined)}>
 						<option value="">不关联（通用预算）</option>
 						{plans.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
 					</select>
-				</div>
-				<div className="label">记录一笔开销</div>
-				<div className="input-row">
-					<select className="text-input" value={category} onChange={(e) => setCategory(e.target.value)}>
-						<option>交通</option>
-						<option>住宿</option>
-						<option>餐饮</option>
-						<option>门票</option>
-						<option>其他</option>
-					</select>
-					<input className="text-input" placeholder="金额" value={amount} onChange={(e) => setAmount(e.target.value)} />
-					<input className="text-input" placeholder="备注" value={note} onChange={(e) => setNote(e.target.value)} />
-					<VoiceInput onResult={parseVoice} />
-					<button className="btn primary" onClick={save}>保存</button>
-				</div>
-				<div className="input-row" style={{ marginTop: 8 }}>
-					<button className="btn" onClick={runEstimate} disabled={estimating || !planId}>
-						{estimating ? 'AI 估算中…' : 'AI 估算预算（基于行程）'}
-					</button>
-					{!planId && <div className="hint">请选择一个行程以进行预算估算</div>}
-				</div>
-				{msg && <div className="hint">{msg}</div>}
-			</section>
-			<section className="content">
-				<div className="left">
-					<div className="card">
-						<div className="card-title">总览</div>
-						<div className="hint">总支出：¥{total.toFixed(2)}</div>
-						<div style={{ marginTop: 8 }}>
-							<div className="label">分类汇总</div>
-							{byCategory.length === 0 ? (
-								<div className="hint">暂无数据</div>
-							) : (
-								<div>
-									{byCategory.map(item => (
-										<div key={item.category} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-											<div style={{ width: 60, color: 'var(--muted)' }}>{item.category}</div>
-											<div style={{ flex: 1, height: 10, background: '#1b2030', borderRadius: 6, overflow: 'hidden' }}>
-												<div style={{
-													width: `${(item.amount / maxAmount) * 100}%`,
-													height: '100%',
-													background: 'var(--primary)'
-												}} />
-											</div>
-											<div style={{ width: 90, textAlign: 'right' }}>¥{item.amount.toFixed(2)}</div>
-										</div>
-									))}
-								</div>
-							)}
-						</div>
-						{aiBudget && (
-							<div style={{ marginTop: 12 }}>
-								<div className="label">AI 估算（与实际对比）</div>
-								<div className="hint">AI 估算总额：¥{(aiBudget.total ?? 0).toFixed(2)}</div>
-								<div>
-									{compare.map(row => (
-										<div key={row.category} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 1fr 1fr', gap: 8, marginBottom: 6 }}>
-											<div style={{ color: 'var(--muted)' }}>{row.category}</div>
-											<div>计划：¥{row.planned.toFixed(2)}</div>
-											<div>实际：¥{row.actual.toFixed(2)}</div>
-											<div style={{ color: row.delta > 0 ? 'var(--danger)' : 'var(--success)' }}>
-												差额：{row.delta > 0 ? '+' : ''}¥{row.delta.toFixed(2)}
-											</div>
-										</div>
-									))}
-								</div>
-							</div>
-						)}
+					<label className="label">记录一笔开销</label>
+					<div className="input-row">
+						<select className="text-input" value={category} onChange={(e) => setCategory(e.target.value)}>
+							<option>交通</option>
+							<option>住宿</option>
+							<option>餐饮</option>
+							<option>门票</option>
+							<option>其他</option>
+						</select>
+						<input className="text-input" placeholder="金额" value={amount} onChange={(e) => setAmount(e.target.value)} />
+						<input className="text-input" placeholder="备注 / 内容" value={note} onChange={(e) => setNote(e.target.value)} />
+						<VoiceInput onResult={parseVoice} />
 					</div>
+					<div className="input-actions">
+						<button className="btn primary" onClick={save}>保存记录</button>
+						<button className="btn ghost" onClick={runEstimate} disabled={estimating || !planId}>
+							{estimating ? 'AI 估算中…' : 'AI 估算预算'}
+						</button>
+						{!planId && <div className="hint">请选择一个行程以进行预算估算</div>}
+					</div>
+					{msg && <div className="hint">{msg}</div>}
 				</div>
-				<div className="right">
-					<div className="card">
-						<div className="card-title">记录列表（最近）</div>
-						<pre className="result">
-{expenses.map((e: Expense) => `${e.created_at ?? ''}  [${e.category}]  ¥${e.amount}  ${e.note ?? ''}`).join('\n') || '暂无记录'}
-						</pre>
+			</section>
+
+			<section className="dashboard-grid budget-layout">
+				<div className="card surface budget-summary-card">
+					<div className="stat-highlight">
+						<span className="stat-label">累计支出</span>
+						<span className="stat-value">¥{total.toFixed(2)}</span>
+					</div>
+					<div className="label">分类汇总</div>
+					{byCategory.length === 0 ? (
+						<div className="empty-state">暂无消费记录</div>
+					) : (
+						<div className="progress-list">
+							{byCategory.map(item => (
+								<div className="progress-item" key={item.category}>
+									<div className="progress-meta">
+										<span>{item.category}</span>
+										<strong>¥{item.amount.toFixed(2)}</strong>
+									</div>
+									<div className="progress-bar">
+										<span style={{ width: `${(item.amount / maxAmount) * 100}%` }} />
+									</div>
+								</div>
+							))}
+						</div>
+					)}
+					{aiBudget && (
+						<div className="compare-card">
+							<div className="compare-header">
+								<span>AI 估算对比</span>
+								<strong>总额 ¥{(aiBudget.total ?? 0).toFixed(2)}</strong>
+							</div>
+							<div className="compare-grid">
+								{compare.map(row => (
+									<div className="compare-row" key={row.category}>
+										<span className="compare-label">{row.category}</span>
+										<span className="compare-plan">计划 ¥{row.planned.toFixed(2)}</span>
+										<span className="compare-actual">实际 ¥{row.actual.toFixed(2)}</span>
+										<span className={`compare-delta ${row.delta > 0 ? 'over' : 'under'}`}>
+											{row.delta > 0 ? '+' : ''}¥{row.delta.toFixed(2)}
+										</span>
+									</div>
+								))}
+							</div>
+						</div>
+					)}
+				</div>
+				<div className="card surface budget-list-card">
+					<div className="card-title">记录列表</div>
+					<div className="record-list">
+						{expenses.length === 0 ? (
+							<div className="empty-state">暂无记录</div>
+						) : (
+							expenses.map((e: Expense) => (
+								<div className="record-item" key={e.id}>
+									<div className="record-main">
+										<div className="record-amount">¥{Number(e.amount ?? 0).toFixed(2)}</div>
+										<div className="record-meta-tags">
+											<span className="record-tag">{e.category}</span>
+											{e.note && <span className="record-note">{e.note}</span>}
+										</div>
+									</div>
+									<div className="record-time">{formatDate(e.created_at)}</div>
+								</div>
+							))
+						)}
 					</div>
 				</div>
 			</section>

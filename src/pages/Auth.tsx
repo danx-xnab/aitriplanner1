@@ -58,43 +58,46 @@ export default function Auth() {
 	}
 
 	return (
-		<div className="settings">
-			<div className="card">
-				<div className="card-title">账户登录</div>
-				{!supabaseUrl || !supabaseAnonKey ? (
-					<div className="hint">请先在“设置”页填写 Supabase URL 与 anon key。</div>
-				) : user ? (
+		<div className="page auth-page">
+			<div className="card surface settings-card">
+				<header className="card-header">
 					<div>
+						<h2 className="card-heading">账户登录</h2>
+						<p className="card-subheading">使用邮箱密码登录或注册，需先在设置中配置 Supabase</p>
+					</div>
+				</header>
+				{!supabaseUrl || !supabaseAnonKey ? (
+					<div className="empty-state">请先在“设置”页填写 Supabase URL 与 anon key。</div>
+				) : user ? (
+					<div className="auth-status">
 						<div className="hint">当前登录：{user.email}</div>
-						<button className="btn" onClick={doLogout} disabled={loading}>退出登录</button>
+						<button className="btn ghost" onClick={doLogout} disabled={loading}>退出登录</button>
 					</div>
 				) : (
-					<>
-						<div className="form-grid">
-							<label>邮箱</label>
-							<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-							<label>密码</label>
-							<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="至少6位" />
-							{mode === 'signup' && <>
-								<label>确认密码</label>
-								<input type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} placeholder="再次输入密码" />
-							</>}
-							<div />
-							<div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-								{mode === 'login' ? (
-									<>
-										<button className="btn primary" onClick={doLogin} disabled={loading || !email || !password}>登录</button>
-										<button className="btn" onClick={() => { setMode('signup'); setMessage(''); }}>没有账号？注册</button>
-									</>
-								) : (
-									<>
-										<button className="btn primary" onClick={doSignup} disabled={loading || !email || !password || !password2}>注册</button>
-										<button className="btn" onClick={() => { setMode('login'); setMessage(''); }}>已有账号？去登录</button>
-									</>
-								)}
-							</div>
+					<div className="form-grid auth-grid">
+						<label>邮箱</label>
+						<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+						<label>密码</label>
+						<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="至少6位" />
+						{mode === 'signup' && <>
+							<label>确认密码</label>
+							<input type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} placeholder="再次输入密码" />
+						</>}
+						<div />
+						<div className="auth-actions">
+							{mode === 'login' ? (
+								<>
+									<button className="btn primary" onClick={doLogin} disabled={loading || !email || !password}>登录</button>
+									<button className="btn ghost" onClick={() => { setMode('signup'); setMessage(''); }}>没有账号？注册</button>
+								</>
+							) : (
+								<>
+									<button className="btn primary" onClick={doSignup} disabled={loading || !email || !password || !password2}>注册</button>
+									<button className="btn ghost" onClick={() => { setMode('login'); setMessage(''); }}>已有账号？去登录</button>
+								</>
+							)}
 						</div>
-					</>
+					</div>
 				)}
 				{message && <div className="hint">{message}</div>}
 			</div>

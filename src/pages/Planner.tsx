@@ -141,74 +141,88 @@ export default function Planner() {
 	});
 
 	return (
-		<div className="planner">
-			<section className="input-section">
-				<label className="label">请输入或语音描述需求</label>
-				<div className="input-row">
-					<input
-						className="text-input"
-						placeholder="例如：我想去日本，5天，预算1万元，喜欢美食和动漫，带孩子"
-						value={prompt}
-						onChange={(e) => setPrompt(e.target.value)}
-					/>
-					<VoiceInput onResult={setPrompt} />
-					<button className="btn" onClick={handlePlan} disabled={!prompt || loading}>
-						{loading ? '规划中…' : '生成行程'}
-					</button>
-					<button className="btn" onClick={handleSavePlan} disabled={!result}>保存行程</button>
+		<div className="page planner-page">
+			<section className="card surface input-card">
+				<header className="card-header">
+					<div>
+						<h2 className="card-heading">智能行程规划</h2>
+						<p className="card-subheading">用语音或文字描述旅行需求，AI 会生成逐日行程与地图标记</p>
+					</div>
+				</header>
+				<div className="input-stack">
+					<label className="label">旅行需求</label>
+					<div className="input-row">
+						<input
+							className="text-input text-input--grow"
+							placeholder="例如：我想去日本，5天，预算1万元，喜欢美食和动漫，带孩子"
+							value={prompt}
+							onChange={(e) => setPrompt(e.target.value)}
+						/>
+						<VoiceInput onResult={setPrompt} />
+					</div>
+					<div className="input-actions">
+						<button className="btn primary" onClick={handlePlan} disabled={!prompt || loading}>
+							{loading ? '规划中…' : '生成行程'}
+						</button>
+						<button className="btn ghost" onClick={handleSavePlan} disabled={!result}>保存到云端</button>
+					</div>
 				</div>
 			</section>
 
-			<section className="content">
-				<div className="left">
-					<div className="card" style={{ marginBottom: 8, height: 120 }}>
+			<section className="planner-layout">
+				<div className="planner-left">
+					<div className="card surface panel-card">
 						<div className="card-title">我的行程</div>
+						<p className="card-hint">切换或回顾之前保存的行程规划。</p>
 						<select className="text-input" onChange={(e) => handleSelectPlan(e.target.value)} value={selectedPlan?.id ?? ''}>
 							<option value="">选择一个已保存的行程</option>
 							{plans.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
 						</select>
 					</div>
-					<MapView
-						markers={markers}
-						onSelectPlace={(p) => {
-							// 将搜索选中的点暂时加入地图（不改变云端数据）
-							setMarkers((prev) => [...prev, { ...p }]);
-						}}
-						autoDrawRoute={true}
-					/>
-				</div>
-				<div className="right">
-					<div className="card">
-						<div className="card-title">行程规划</div>
-						{summary && Array.isArray(summary.days) ? (
-							<div style={{ lineHeight: 1.6 }}>
-								{summary.days.map((d: any, idx: number) => {
-									const dayNo = d?.day ?? idx + 1;
-									const morning = Array.isArray(d?.morning) ? d.morning : (d?.morning ? [d.morning] : []);
-									const afternoon = Array.isArray(d?.afternoon) ? d.afternoon : (d?.afternoon ? [d.afternoon] : []);
-									const evening = Array.isArray(d?.evening) ? d.evening : (d?.evening ? [d.evening] : []);
-									if (Array.isArray(d?.items)) {
-										for (const it of d.items) {
-											const text = it?.name || it?.title || '';
-											if (it?.timeOfDay === 'morning') morning.push(text);
-											if (it?.timeOfDay === 'afternoon') afternoon.push(text);
-											if (it?.timeOfDay === 'evening') evening.push(text);
-										}
-									}
-									return (
-										<div key={idx} style={{ marginBottom: 10 }}>
-											<div style={{ fontWeight: 700, marginBottom: 6 }}>第{dayNo}天</div>
-											{morning.length > 0 && <div>上午：{morning.join('、')}</div>}
-											{afternoon.length > 0 && <div>下午：{afternoon.join('、')}</div>}
-											{evening.length > 0 && <div>晚上：{evening.join('、')}</div>}
-										</div>
-									);
-								})}
-							</div>
-						) : (
-							<pre className="result">{result || '等待生成…'}</pre>
-						)}
+					<div className="card surface map-card">
+						<div className="card-title">行程地图</div>
+						<div className="map-shell">
+							<MapView
+								markers={markers}
+								onSelectPlace={(p) => {
+									// 将搜索选中的点暂时加入地图（不改变云端数据）
+									setMarkers((prev) => [...prev, { ...p }]);
+								}}
+								autoDrawRoute={true}
+							/>
+						</div>
 					</div>
+				</div>
+				<div className="card surface itinerary-card">
+					<div className="card-title">行程规划</div>
+					{summary && Array.isArray(summary.days) ? (
+						<div className="itinerary-list">
+							{summary.days.map((d: any, idx: number) => {
+								const dayNo = d?.day ?? idx + 1;
+								const morning = Array.isArray(d?.morning) ? d.morning : (d?.morning ? [d.morning] : []);
+								const afternoon = Array.isArray(d?.afternoon) ? d.afternoon : (d?.afternoon ? [d.afternoon] : []);
+								const evening = Array.isArray(d?.evening) ? d.evening : (d?.evening ? [d.evening] : []);
+								if (Array.isArray(d?.items)) {
+									for (const it of d.items) {
+										const text = it?.name || it?.title || '';
+										if (it?.timeOfDay === 'morning') morning.push(text);
+										if (it?.timeOfDay === 'afternoon') afternoon.push(text);
+										if (it?.timeOfDay === 'evening') evening.push(text);
+									}
+								}
+								return (
+									<div className="itinerary-day" key={idx}>
+										<div className="itinerary-day-title">第{dayNo}天</div>
+										{morning.length > 0 && <div className="itinerary-slot"><span>上午</span><p>{morning.join('、')}</p></div>}
+										{afternoon.length > 0 && <div className="itinerary-slot"><span>下午</span><p>{afternoon.join('、')}</p></div>}
+										{evening.length > 0 && <div className="itinerary-slot"><span>晚上</span><p>{evening.join('、')}</p></div>}
+									</div>
+								);
+							})}
+						</div>
+					) : (
+						<pre className="result">{result || '等待生成…'}</pre>
+					)}
 				</div>
 			</section>
 		</div>
