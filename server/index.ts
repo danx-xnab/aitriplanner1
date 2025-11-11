@@ -6,7 +6,9 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = Fastify({
-	logger: true
+	logger: true,
+	requestTimeout: 200000,
+	keepAliveTimeout: 200000
 });
 
 await app.register(cors, {
@@ -32,17 +34,17 @@ app.register(
 					{
 						model,
 						messages: [
-							{ role: 'system', content: 'You are a helpful Chinese travel planning assistant.' },
+							{ role: 'system', content: '你是一位专业的中文旅行规划师，擅长生成详细实用的旅行行程。请用中文回复，内容要详细但简洁。' },
 							{ role: 'user', content: prompt }
 						],
-						temperature: 0.4
+						temperature: 0.5
 					},
 					{
 						headers: {
 							Authorization: `Bearer ${userKey}`,
 							'Content-Type': 'application/json'
 						},
-						timeout: 60000
+						timeout: 180000
 					}
 				);
 				const text =
@@ -86,7 +88,7 @@ app.register(
 								Authorization: `Bearer ${userKey}`,
 								'Content-Type': 'application/json'
 							},
-							timeout: 60000
+							timeout: 180000
 						}
 					);
 					const text =

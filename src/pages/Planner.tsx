@@ -71,7 +71,15 @@ export default function Planner() {
 		}));
 		const withCoords = initial.filter((m: any) => !Number.isNaN(m.lng) && !Number.isNaN(m.lat));
 		const needGeocode = initial.filter((m: any) => Number.isNaN(m.lng) || Number.isNaN(m.lat));
-		setMarkers(withCoords.map((m: any) => ({ lng: m.lng, lat: m.lat, name: m.name, day: m.day })));
+		// 对已有坐标的标记也进行去重（按名称）
+		const coordMap = new Map<string, any>();
+		for (const m of withCoords) {
+			const nameKey = String(m.name || '').toLowerCase().trim();
+			if (nameKey && !coordMap.has(nameKey)) {
+				coordMap.set(nameKey, { lng: m.lng, lat: m.lat, name: m.name, day: m.day });
+			}
+		}
+		setMarkers(Array.from(coordMap.values()));
 		if (needGeocode.length) {
 			geocodePois(needGeocode.map((x: any) => ({ name: x.name, city: x.city }))).then((geo) => {
 				if (!geo?.length) return;
@@ -80,12 +88,23 @@ export default function Planner() {
 						const d = initial.find((i: any) => i.name === g.name)?.day;
 						return { lng: g.lng, lat: g.lat, name: g.name, day: d };
 					});
-					// 去重
-					const key = (m: any) => `${m.name}-${m.lng}-${m.lat}`;
-					const merged = [...prev, ...plus];
-					const uniq = new Map<string, any>();
-					for (const m of merged) uniq.set(key(m), m);
-					return Array.from(uniq.values());
+					// 改进的去重：按名称分组，如果同一名称有多个坐标，优先保留第一个（通常是最准确的）
+					const nameMap = new Map<string, any>();
+					// 先处理已有标记
+					for (const m of prev) {
+						const nameKey = String(m.name || '').toLowerCase().trim();
+						if (nameKey && !nameMap.has(nameKey)) {
+							nameMap.set(nameKey, m);
+						}
+					}
+					// 再处理新地理编码的结果（如果名称已存在，不覆盖，避免错误坐标覆盖正确坐标）
+					for (const m of plus) {
+						const nameKey = String(m.name || '').toLowerCase().trim();
+						if (nameKey && !nameMap.has(nameKey)) {
+							nameMap.set(nameKey, m);
+						}
+					}
+					return Array.from(nameMap.values());
 				});
 			});
 		}
@@ -195,33 +214,41 @@ export default function Planner() {
 				</div>
 				<div className="card surface itinerary-card">
 					<div className="card-title">行程规划</div>
-					{summary && Array.isArray(summary.days) ? (
-						<div className="itinerary-list">
-							{summary.days.map((d: any, idx: number) => {
-								const dayNo = d?.day ?? idx + 1;
-								const morning = Array.isArray(d?.morning) ? d.morning : (d?.morning ? [d.morning] : []);
-								const afternoon = Array.isArray(d?.afternoon) ? d.afternoon : (d?.afternoon ? [d.afternoon] : []);
-								const evening = Array.isArray(d?.evening) ? d.evening : (d?.evening ? [d.evening] : []);
-								if (Array.isArray(d?.items)) {
-									for (const it of d.items) {
-										const text = it?.name || it?.title || '';
-										if (it?.timeOfDay === 'morning') morning.push(text);
-										if (it?.timeOfDay === 'afternoon') afternoon.push(text);
-										if (it?.timeOfDay === 'evening') evening.push(text);
-									}
-								}
-								return (
-									<div className="itinerary-day" key={idx}>
-										<div className="itinerary-day-title">第{dayNo}天</div>
-										{morning.length > 0 && <div className="itinerary-slot"><span>上午</span><p>{morning.join('、')}</p></div>}
-										{afternoon.length > 0 && <div className="itinerary-slot"><span>下午</span><p>{afternoon.join('、')}</p></div>}
-										{evening.length > 0 && <div className="itinerary-slot"><span>晚上</span><p>{evening.join('、')}</p></div>}
+					{result ? (
+						<div className="itinerary-content">
+							<pre className="result">{result}</pre>
+							{summary && Array.isArray(summary.days) && (
+								<div className="itinerary-summary">
+									<div className="itinerary-summary-title">快速概览</div>
+									<div className="itinerary-list">
+										{summary.days.map((d: any, idx: number) => {
+											const dayNo = d?.day ?? idx + 1;
+											const morning = Array.isArray(d?.morning) ? d.morning : (d?.morning ? [d.morning] : []);
+											const afternoon = Array.isArray(d?.afternoon) ? d.afternoon : (d?.afternoon ? [d.afternoon] : []);
+											const evening = Array.isArray(d?.evening) ? d.evening : (d?.evening ? [d.evening] : []);
+											if (Array.isArray(d?.items)) {
+												for (const it of d.items) {
+													const text = it?.name || it?.title || '';
+													if (it?.timeOfDay === 'morning') morning.push(text);
+													if (it?.timeOfDay === 'afternoon') afternoon.push(text);
+													if (it?.timeOfDay === 'evening') evening.push(text);
+												}
+											}
+											return (
+												<div className="itinerary-day" key={idx}>
+													<div className="itinerary-day-title">第{dayNo}天</div>
+													{morning.length > 0 && <div className="itinerary-slot"><span>上午</span><p>{morning.join('、')}</p></div>}
+													{afternoon.length > 0 && <div className="itinerary-slot"><span>下午</span><p>{afternoon.join('、')}</p></div>}
+													{evening.length > 0 && <div className="itinerary-slot"><span>晚上</span><p>{evening.join('、')}</p></div>}
+												</div>
+											);
+										})}
 									</div>
-								);
-							})}
+								</div>
+							)}
 						</div>
 					) : (
-						<pre className="result">{result || '等待生成…'}</pre>
+						<div className="empty-state">等待生成…</div>
 					)}
 				</div>
 			</section>

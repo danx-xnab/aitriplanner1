@@ -4,6 +4,16 @@ import { useDb as usePlansDb } from '@/services/db';
 import VoiceInput from '@/components/VoiceInput';
 import { estimateBudgetFromPlan } from '@/services/llm';
 
+function formatDate(dateStr: string | null | undefined): string {
+	if (!dateStr) return '';
+	try {
+		const d = new Date(dateStr);
+		return d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) + ' ' + d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+	} catch {
+		return dateStr;
+	}
+}
+
 export default function Budget() {
 	const { expenses, loadExpenses, addExpense } = useDb();
 	const { plans, loadPlans } = usePlansDb();
@@ -69,7 +79,9 @@ export default function Budget() {
 	function parseVoice(text: string) {
 		// 智能解析：“今天地铁5元”、“滴滴打车28 去酒店”、“午餐 36 牛肉面”、“住如家 268”
 		try {
-			const lower = text.toLowerCase();
+			// 清理文本：去除句号、逗号等标点符号
+			let cleaned = text.trim().replace(/[。，、；：！？]/g, ' ').replace(/\s+/g, ' ').trim();
+			const lower = cleaned.toLowerCase();
 			// 类别关键词
 			const rules: { key: string; cat: string }[] = [
 				{ key: '地铁', cat: '交通' }, { key: '公交', cat: '交通' }, { key: '打车', cat: '交通' }, { key: '滴滴', cat: '交通' }, { key: '高铁', cat: '交通' }, { key: '动车', cat: '交通' }, { key: '飞机', cat: '交通' },
@@ -79,27 +91,34 @@ export default function Budget() {
 			];
 			let detected: string | null = null;
 			for (const r of rules) {
-				if (text.includes(r.key)) { detected = r.cat; break; }
+				if (cleaned.includes(r.key)) { detected = r.cat; break; }
 			}
 			if (!detected) {
-				const explicit = text.match(/(交通|住宿|餐饮|门票|其他)/);
+				const explicit = cleaned.match(/(交通|住宿|餐饮|门票|其他)/);
 				if (explicit) detected = explicit[1];
 			}
 			if (detected) setCategory(detected);
-			const amtMatch = text.match(/([0-9]+(?:\.[0-9]+)?)\s*(元|块|人民币)?/);
+			const amtMatch = cleaned.match(/([0-9]+(?:\.[0-9]+)?)\s*(元|块|人民币)?/);
 			if (amtMatch) setAmount(amtMatch[1]);
-			const afterAmtIndex = amtMatch ? (text.indexOf(amtMatch[0]) + amtMatch[0].length) : -1;
+			const afterAmtIndex = amtMatch ? (cleaned.indexOf(amtMatch[0]) + amtMatch[0].length) : -1;
 			if (afterAmtIndex >= 0) {
-				const rest = text.slice(afterAmtIndex).trim();
-				if (rest) setNote(rest || text);
+				let rest = cleaned.slice(afterAmtIndex).trim();
+				// 再次清理备注中的标点符号
+				rest = rest.replace(/^[。，、；：！？\s]+|[。，、；：！？\s]+$/g, '').trim();
+				if (rest && rest !== '。' && rest !== '.' && rest !== '，' && rest !== ',') {
+					setNote(rest);
+				}
 			} else {
 				// 回退到空格切分
-				const parts = text.trim().split(/\s+/);
+				const parts = cleaned.split(/\s+/).filter(p => p && p !== '。' && p !== '.' && p !== '，' && p !== ',');
 				if (parts.length >= 2) {
 					if (!detected) setCategory(parts[0]);
 					const n = parseFloat(parts[1]);
 					if (!isNaN(n)) setAmount(String(n));
-					if (parts[2]) setNote(parts.slice(2).join(' '));
+					if (parts.length > 2) {
+						const noteParts = parts.slice(2).filter(p => p && p !== '。' && p !== '.' && p !== '，' && p !== ',');
+						if (noteParts.length > 0) setNote(noteParts.join(' '));
+					}
 				}
 			}
 		} catch {}
@@ -212,11 +231,11 @@ export default function Budget() {
 							expenses.map((e: Expense) => (
 								<div className="record-item" key={e.id}>
 									<div className="record-main">
-										<div className="record-amount">¥{Number(e.amount ?? 0).toFixed(2)}</div>
-										<div className="record-meta-tags">
+										<div className="record-header">
+											<div className="record-amount">¥{Number(e.amount ?? 0).toFixed(2)}</div>
 											<span className="record-tag">{e.category}</span>
-											{e.note && <span className="record-note">{e.note}</span>}
 										</div>
+										{e.note && <div className="record-note">{e.note}</div>}
 									</div>
 									<div className="record-time">{formatDate(e.created_at)}</div>
 								</div>
